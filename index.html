@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Klaim Voucher Zarafa Padel</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap');
         
@@ -205,6 +206,17 @@
                 height: 60px;
             }
         }
+        #reader {
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #000;
+        border: 4px solid #fde047;
+        margin-bottom: 20px;
+        }
+        #reader video {
+        object-fit: cover;
+        }
     </style>
 </head>
 <body>
@@ -300,6 +312,19 @@
 
                         <!-- Form -->
                         <form id="claimForm" class="space-y-4 sm:space-y-5">
+
+                            <div id="scanner-container" class="hidden mb-4">
+    <div id="reader"></div>
+    <button type="button" onclick="stopScanner()" class="w-full py-2 bg-red-500/80 hover:bg-red-600 text-white font-bold rounded-lg text-sm transition">
+        ❌ Tutup Kamera
+    </button>
+</div>
+
+<button type="button" onclick="startScanner()" 
+    class="w-full mb-4 py-3 bg-white/10 hover:bg-white/20 border-2 border-dashed border-white/50 rounded-xl text-white font-bold flex items-center justify-center gap-2 transition hover:border-yellow-300 hover:text-yellow-300">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    SCAN QR / UPLOAD FOTO
+</button>
                             
                             <!-- Code Display -->
                             <div class="qr-style-box rounded-2xl p-5 relative overflow-hidden">
@@ -483,6 +508,62 @@
     } else {
         sidebarKode.innerText = "---";
     }
+
+    // --- FITUR SCANNER QR ---
+    let html5QrcodeScanner;
+
+    function startScanner() {
+        // Munculkan area scanner
+        document.getElementById('scanner-container').classList.remove('hidden');
+        
+        // Inisialisasi Scanner (fps 10 biar ringan, box 250px)
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 10, qrbox: 250 }, false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    function stopScanner() {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear().then(() => {
+                document.getElementById('scanner-container').classList.add('hidden');
+            }).catch(error => console.error("Gagal stop scanner", error));
+        } else {
+            document.getElementById('scanner-container').classList.add('hidden');
+        }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // 1. Bersihkan Link (Ambil kodenya saja)
+        // Link: https://zarafa.../?kode=ZRF-001  --> Jadi: ZRF-001
+        let finalCode = decodedText;
+        if (decodedText.includes("kode=")) {
+            try {
+                finalCode = decodedText.split('kode=')[1].split('&')[0]; 
+            } catch (e) {
+                finalCode = decodedText; 
+            }
+        }
+
+        // 2. Masukkan ke Input & Update Tampilan Sidebar
+        const cleanCode = finalCode.toUpperCase().trim();
+        document.getElementById('kode').value = cleanCode;
+        document.getElementById('sidebarKode').innerText = cleanCode; // Update teks sidebar kiri
+        
+        // 3. Matikan scanner otomatis
+        stopScanner();
+        
+        // 4. Kasih notif sukses kecil (opsional)
+        alert("✅ Kode Terbaca: " + cleanCode);
+    }
+
+    function onScanFailure(error) {
+        // Biarkan kosong biar console gak penuh error pas lagi nyari kode
+    }
+
+    // --- BATAS SCRIPT SCANNER ---
+    
+    // (Di bawah ini kode form.addEventListener yang lama...)
 
     // --- 2. HANDLE SUBMIT FORM ---
     form.addEventListener('submit', async (e) => {
