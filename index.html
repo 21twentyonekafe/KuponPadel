@@ -206,16 +206,23 @@
                 height: 60px;
             }
         }
+        /* UPDATE BAGIAN INI DI DALAM <style> */
         #reader {
-        width: 100%;
-        border-radius: 12px;
-        overflow: hidden;
-        background: #000;
-        border: 4px solid #fde047;
-        margin-bottom: 20px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            border: 4px solid #fde047;
+            margin-bottom: 20px;
+            position: relative;
         }
+        
+        /* Paksa video biar muncul penuh */
         #reader video {
-        object-fit: cover;
+            width: 100% !important;
+            height: auto !important;
+            display: block !important;
+            object-fit: cover !important;
         }
     </style>
 </head>
@@ -509,25 +516,56 @@
         sidebarKode.innerText = "---";
     }
 
-    // --- FITUR SCANNER QR ---
-    let html5QrcodeScanner;
+    // --- FITUR SCANNER QR UPDATE (ANTI BLACK SCREEN) ---
+    let html5QrcodeScanner = null;
 
     function startScanner() {
-        // Munculkan area scanner
-        document.getElementById('scanner-container').classList.remove('hidden');
-        
-        // Inisialisasi Scanner (fps 10 biar ringan, box 250px)
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", { fps: 10, qrbox: 250 }, false
-        );
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        // 1. Munculkan wadahnya dulu
+        const container = document.getElementById('scanner-container');
+        container.classList.remove('hidden');
+
+        // 2. Cek kalau scanner udah jalan, jangan didouble
+        if (html5QrcodeScanner) return;
+
+        // 3. KASIH JEDA 300ms (PENTING BUAT HP!)
+        // Biar browser selesai render kotak hitamnya dulu, baru nyalain kamera
+        setTimeout(() => {
+            try {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "reader", 
+                    { 
+                        fps: 10,
+                        // LOGIKA BARU: Kotak scan menyesuaikan ukuran layar HP (70%)
+                        // Ini mencegah error "Element dimensions invalid" yang bikin layar hitam
+                        qrbox: function(viewfinderWidth, viewfinderHeight) {
+                            let minEdgePercentage = 0.7; // 70% width
+                            let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                            let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                            return {
+                                width: qrboxSize,
+                                height: qrboxSize
+                            };
+                        },
+                        aspectRatio: 1.0,
+                        showTorchButtonIfSupported: true // Bonus: tombol flash
+                    }, 
+                    /* verbose= */ false
+                );
+                
+                html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            } catch (err) {
+                console.error("Error start scanner:", err);
+                alert("Gagal memulai kamera. Coba refresh halaman.");
+            }
+        }, 300); // Delay 0.3 detik
     }
 
     function stopScanner() {
         if (html5QrcodeScanner) {
             html5QrcodeScanner.clear().then(() => {
                 document.getElementById('scanner-container').classList.add('hidden');
-            }).catch(error => console.error("Gagal stop scanner", error));
+                html5QrcodeScanner = null;
+            }).catch(error => console.error(error));
         } else {
             document.getElementById('scanner-container').classList.add('hidden');
         }
